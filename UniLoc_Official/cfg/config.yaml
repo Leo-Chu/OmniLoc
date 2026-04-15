@@ -1,0 +1,58 @@
+# Configuration file for PyTorch Lightning Transformer Training
+
+# Model parameters
+model:
+  name: "vanilla_transformer"
+  d_model: 512
+  nhead: 8
+  num_encoder_layers: 6
+  num_decoder_layers: 6
+  dim_feedforward: 2048
+  dropout: 0.1
+  activation: "relu"
+  max_seq_length: 100
+  vocab_size: 10000
+
+# Data parameters
+data:
+  batch_size: 32
+  num_workers: 4
+  train_split: 0.8
+  val_split: 0.1
+  test_split: 0.1
+  data_dir: "./data"
+  
+# Training parameters
+training:
+  max_epochs: 100
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  precision: 32  # 16 or 32
+  
+# Optimizer and scheduler
+optimizer:
+  name: "adam"
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+scheduler:
+  name: "cosine"
+  T_max: 100
+  eta_min: 1e-6
+
+# Logging and checkpointing
+logging:
+  log_dir: "./results/logs"
+  experiment_name: "transformer_experiment"
+  save_top_k: 3
+  monitor: "val_loss"
+  mode: "min"
+
+# System
+system:
+  seed: 42
+  gpus: 1
+  accelerator: "gpu"  # or "cpu"
+  devices: 1

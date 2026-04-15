@@ -1,0 +1,126 @@
+# Configuration for Localization Transformer Training
+
+# Model parameters
+model:
+  d_model: 256
+  nhead: 8
+  num_layers: 4
+  dim_feedforward: 512
+  dropout: 0.1
+  # Pooling: "mean" (full seq), "cls" (learnable [CLS] token), "last_two", "last_and_mean"
+  pooling: "mean"
+  # FFN activation: "gelu" (recommended) or "relu"
+  ffn_activation: "gelu"
+  # Use learnable positional embeddings instead of sinusoidal (optional)
+  use_learnable_pos: false
+  max_seq_len: 1000
+  # Encoder: true = pre-norm (norm before attention/FFN), false = post-norm (PyTorch default)
+  use_pre_norm: true
+  # Cross-modality positional encoding: modality embedding + position-within-modality for CSI, RSSI, SNR
+  use_cross_modality_pos: true
+  # Align positional encodings by AP: per-AP sequence [csi_j,rssi_j,snr_j,...], same pos for same AP (sensors)
+  use_align_pos_per_ap: false
+  max_n1: 222  # Max dimension for N1 (Blk_APVec_1)
+  max_n2: 3317  # Max dimension for N2 (Blk_APVec_2)
+  max_k: 222  # Max dimension for K (APs in CSI)
+  num_subcarriers: 52  # Number of subcarriers in CSI
+  max_building: 16  # Maximum building number (0-15)
+  max_floor: 10  # Maximum floor number (0-9)
+  # Multi-head pooling: number of pool heads M (default 8)
+  num_pool_heads: 8
+  # Sinusoidal PE on the full sequence [GLOBAL | AP_1..N1] (per-AP positions, not only the global token).
+  use_full_sequence_sin_pe: true
+  # If true, building/floor logits are detached before the GLO regression path (decoupled training). If false, gradients flow into classification heads from the regression branch as well.
+  detach_logits_for_regression: true
+
+# Data parameters
+data:
+  batch_size: 64
+  num_workers: 23
+  # Pickles: training.pkl, eval.pkl, test.pkl in repo data/ folder
+  data_dir: "data"
+
+# Training parameters
+training:
+  max_epochs: 150  # Train for 100 epochs
+  learning_rate: 0.001  # Increased from 0.0001 for better convergence
+  weight_decay: 0.0001
+  min_lr: 0.000001  # 1e-6 as float (YAML may parse 1e-6 as string)
+  lr_reduce_factor: 0.5  # Factor by which learning rate is reduced (0.5 = halve)
+  lr_patience: 15  # Increased patience before reducing LR (was 10)
+  warmup_epochs: 10  # Number of epochs for learning rate warmup
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  precision: 32  # 16 or 32
+  patience: 50  # Early stopping patience (will stop if no improvement for 20 epochs)
+  
+  # Loss weights - increased regression weight to focus on coordinate prediction
+  reg_weight: 5.0  # Increased from 1.0 to emphasize regression
+  building_weight: 1.0  # Weight for building classification loss
+  floor_weight: 1.0  # Weight for floor classification loss
+  huber_threshold: 1.0  # Threshold (delta) for Huber loss - switches from L2 to L1 at this point
+  label_smoothing: 0    # No smoothing; classification (building/floor) is easy, focus on regression
+  # Imbalanced building/floor counts: none | sqrt (inverse-sqrt freq) | inv (inverse freq), from data/training.pkl
+  cls_reweight: sqrt
+  # Optional finetune defaults (separate scripts may use these)
+  finetune_lr: 0.001
+  finetune_epochs: 100
+  # Full finetuning (finetune_case1_full.py)
+  full_finetune_lr: 0.001
+
+# Logging and checkpointing
+logging:
+  log_dir: "./results/logs"
+  experiment_name: "localization_transformer"
+
+# Multi-stage training: stage1 -> stage2; optional stage3 (joint regression + light classification) from stage-2 checkpoint.
+# Set enabled: false to use a single run with training.* as-is.
+# Checkpoints: stage1 uses stage1.monitor (e.g. val/mean_cls_acc); stage2, stage3, and single-stage use val/reg_loss.
+two_stage:
+  enabled: true
+  # When true, run stage 3 after stage 2 (requires stage3 block below).
+  use_three_stage: true
+  # Stage 1: V2Ab-like multi-task — small Huber + CE + coupled GLO (gradients into cls heads).
+  stage1:
+    max_epochs: 100
+    patience: 35
+    monitor: val/mean_cls_acc
+    monitor_mode: max
+    reg_weight: 0.35
+    building_weight: 2.0
+    floor_weight: 2.0
+    label_smoothing: 0.05
+    learning_rate: 0.0008
+    warmup_epochs: 15
+    cls_reweight: sqrt
+    detach_logits_for_regression: false
+  stage2:
+    max_epochs: 500
+    patience: 40
+    reg_weight: 5.0
+    building_weight: 0.0
+    floor_weight: 0.0
+    label_smoothing: 0.0
+    learning_rate: 0.0003
+    warmup_epochs: 0
+    detach_logits_for_regression: true
+    freeze_classifier_heads: true
+  # Stage 3: load best stage-2 ckpt; joint regression + light classification (unfreeze heads).
+  stage3:
+    max_epochs: 500
+    patience: 25
+    reg_weight: 5.0
+    building_weight: 0.35
+    floor_weight: 0.35
+    label_smoothing: 0.05
+    learning_rate: 0.0001
+    warmup_epochs: 5
+    cls_reweight: sqrt
+    detach_logits_for_regression: true
+    freeze_classifier_heads: false
+
+# System
+system:
+  seed: 42
+  accelerator: "gpu"  # or "cpu"
+  devices: 1
