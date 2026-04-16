@@ -1,6 +1,6 @@
 # UniLoc — Training `main.py`
 
-This project introduces a new LocalizationTransformer  (with PyTorch Lightning) for indoor localization from Wi‑Fi features (CSI, RSSI, SNR, AP vectors).  A first-time work for small-size foundation model based on measurements.
+This project presents a novel LocalizationTransformer, implemented with PyTorch Lightning, for indoor localization using Wi-Fi-derived features such as CSI, RSSI, SNR, and AP vectors. It represents an early effort toward developing a compact foundation model—comparable in scale to GPT-1—trained on real measurement data. 
 
 ## Prerequisites
 
