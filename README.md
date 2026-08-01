@@ -144,8 +144,7 @@ If you use this code, the **WiLoc** dataset, or the **OmniLoc** model in researc
   year={2026}
 }
 ```
-
-The second entry uses the key `chu2026OmniLoc` so it does not duplicate `zhang2026wiloc` in your `.bib` file; you may rename the key to match your bibliography style.
+ 
 
 ## License
 
